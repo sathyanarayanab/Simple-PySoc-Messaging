@@ -25,6 +25,7 @@ class Server:
                         break
                     else:
                         print(bcolors.OKGREEN+data+bcolors.ENDC)
+                        sendForOtherClient(self.conn,data).start()
                 except:
                     pass
             self.conn.close()
@@ -42,10 +43,17 @@ class Server:
                 try:
                     message = input("\n")
                     message = message + "\n"
-                    send = self.conn.sendall(f"{self.name} : {message}".encode())
+                    user = self.conn
+                    for clients in list_of_clients:
+                            try:
+                                send = clients.sendall(f"{self.name} : {message}".encode())
+                            except:
+                                list_of_clients.remove(clients)
                 except:
                     pass
             self.conn.close()
+
+
 
 class Client:
     class newThreadforRecieving(Thread):
@@ -92,7 +100,19 @@ def fetch_arguments():
     (options, arguments) = parse_arguments.parse_args()
     return options
 
-
+class sendForOtherClient(Thread):
+    def __init__(self, conn,message):
+        Thread.__init__(self)
+        self.conn = conn
+        self.message = message
+        #self.name = name
+    def run(self):
+            for clients in list_of_clients:
+                if self.conn!=clients:
+                    try:
+                        send = clients.sendall(self.message.encode())
+                    except:
+                        pass
 
 option = fetch_arguments()
 NAME  = option.NAME
@@ -107,8 +127,10 @@ if option.server:
     sock.setsockopt(s.SOL_SOCKET,s.SO_REUSEADDR,1)
     sock.bind((HOST,PORT))
     sock.listen()
+    list_of_clients = []
     while True:
         conn, addr = sock.accept()
+        list_of_clients.append(conn)
         Server.newThreadforRecieving(conn,addr,sock,NAME).start()
         Server.newThreadforSending(conn,addr,sock,NAME).start()
     conn.close()
